@@ -35,12 +35,3 @@ ExternalProject_Add(clutter_proj
   CMAKE_ARGS
   -DCMAKE_INSTALL_PREFIX=${PROJECT_SOURCE_DIR}/build
   -Ddrake_DIR=${drake_DIR})
-
-#include_directories(
-#  ${PROJECT_SOURCE_DIR}/build/include
-#  ${PCL_INCLUDE_DIRS}
-#  ${OpenCV_INCLUDE_DIRS})
-
-#add_executable(clutter_clearing2 clutter_clearing2.cc)
-#add_dependencies(clutter_clearing2 robot_bridge_proj rgbd_bridge_proj perception_proj grasp_gen_proj)
-#target_link_libraries(clutter_clearing2 perception grasp_gen robot_bridge)
