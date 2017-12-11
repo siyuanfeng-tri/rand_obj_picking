@@ -1,0 +1,16 @@
+[submodule "rgbd_bridge"]
+	path = rgbd_bridge
+	url = https://github.com/siyuanfeng-tri/rgbd_bridge.git
+	branch = master
+[submodule "perception"]
+	path = perception
+	url = https://github.com/siyuanfeng-tri/perception.git
+	branch = master
+[submodule "grasp_gen"]
+	path = grasp_gen
+	url = https://github.com/siyuanfeng-tri/grasp_gen.git
+	branch = master
+[submodule "robot_bridge"]
+	path = robot_bridge
+	url = https://github.com/siyuanfeng-tri/robot_bridge.git
+	branch = master
