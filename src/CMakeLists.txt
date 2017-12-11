@@ -21,4 +21,4 @@ add_definitions(
   -DGRASP_PARAM_PATH="${PROJECT_SOURCE_DIR}/../cfg/grasp_params")
 
 add_executable(clutter_clearing2 clutter_clearing2.cc)
-target_link_libraries(clutter_clearing2 drake::drake perception grasp_gen robot_bridge)
+target_link_libraries(clutter_clearing2 perception grasp_gen robot_bridge drake::drake)
