@@ -6,6 +6,8 @@ find_package(OpenCV 2.4 REQUIRED)
 find_package(drake CONFIG REQUIRED)
 find_package(realsense)
 
+set(CMAKE_VERBOSE_MAKEFILE ON)
+
 include_directories(
   ${CMAKE_INSTALL_PREFIX}/include
   /usr/include/pcl-1.7
