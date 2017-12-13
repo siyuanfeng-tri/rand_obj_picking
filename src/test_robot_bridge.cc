@@ -1,7 +1,7 @@
 #include "drake/multibody/joints/floating_base_types.h"
 #include "drake/multibody/parsers/urdf_parser.h"
 #include "robot_bridge/iiwa_controller.h"
-//#include "perception/perception.h"
+#include "perception/perception.h"
 
 int main() {
 
@@ -38,10 +38,8 @@ int main() {
 
   robot_comm.Stop();
 
-  /*
   pcl::PointCloud<pcl::PointXYZRGBNormal> g_fused_cloud;
   perception::VisualizePointCloudDrake(g_fused_cloud, &lcm,
       Eigen::Isometry3d::Identity(), "DRAKE_POINTCLOUD_FUSED");
-  */
   return 0;
 }
