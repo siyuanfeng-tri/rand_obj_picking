@@ -33,8 +33,22 @@ int main() {
   robot_comm.Start();
 
   Eigen::VectorXd q = Eigen::VectorXd::Zero(7);
-  q[1] = M_PI / 2;
+  q << -80, 40, -0, -77, -0, 63, -56;
+  q = q / 180. * M_PI;
   robot_comm.MoveJointRadians(q, 2, true);
+
+  robot_bridge::RobotState robot_state(&tree, &tool_frame);
+  Eigen::Isometry3d X0;
+
+  robot_comm.GetRobotState(&robot_state);
+  X0 = robot_state.get_X_WT();
+  X0 = Eigen::Translation3d(Eigen::Vector3d(-0.1, 0, 0.)) * X0;
+  robot_comm.MoveTool(X0, 3, 100, true);
+
+  robot_comm.GetRobotState(&robot_state);
+  X0 = robot_state.get_X_WT();
+  X0 = Eigen::Translation3d(Eigen::Vector3d(-0.1, 0, 0.1)) * X0;
+  robot_comm.MoveTool(X0, 3, 100, true);
 
   robot_comm.Stop();
 
