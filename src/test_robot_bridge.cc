@@ -1,7 +1,7 @@
 #include "drake/multibody/joints/floating_base_types.h"
 #include "drake/multibody/parsers/urdf_parser.h"
 #include "robot_bridge/iiwa_controller.h"
-// #include "perception/perception.h"
+//#include "perception/perception.h"
 
 int main() {
 

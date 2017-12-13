@@ -9,7 +9,7 @@ include(ExternalProject)
 find_package(PCL REQUIRED)
 find_package(OpenCV 2.4 REQUIRED)
 find_package(drake CONFIG REQUIRED)
-find_package(realsense)
+#find_package(realsense)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
