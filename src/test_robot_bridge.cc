@@ -1,7 +1,6 @@
 #include "drake/multibody/joints/floating_base_types.h"
 #include "drake/multibody/parsers/urdf_parser.h"
 #include "robot_bridge/iiwa_controller.h"
-#include "perception/perception.h"
 
 int main() {
 
@@ -33,27 +32,24 @@ int main() {
   robot_comm.Start();
 
   Eigen::VectorXd q = Eigen::VectorXd::Zero(7);
-  q << -80, 40, -0, -77, -0, 63, -56;
-  q = q / 180. * M_PI;
-  robot_comm.MoveJointRadians(q, 2, true);
+  q[1] = 45;
+  q[3] = 1;
+  q[5] = 45;
+  //q << 0, 40, -0, -77, -0, 63, -56;
+  robot_comm.MoveJointDegrees(q, 2, true);
 
   robot_bridge::RobotState robot_state(&tree, &tool_frame);
   Eigen::Isometry3d X0;
 
   robot_comm.GetRobotState(&robot_state);
   X0 = robot_state.get_X_WT();
-  X0 = Eigen::Translation3d(Eigen::Vector3d(-0.1, 0, 0.)) * X0;
-  robot_comm.MoveTool(X0, 3, 100, true);
 
-  robot_comm.GetRobotState(&robot_state);
-  X0 = robot_state.get_X_WT();
-  X0 = Eigen::Translation3d(Eigen::Vector3d(-0.1, 0, 0.1)) * X0;
-  robot_comm.MoveTool(X0, 3, 100, true);
+  for (int i = 0; i < 3; i++) {
+    robot_comm.MoveTool(Eigen::Translation3d(Eigen::Vector3d(-0.4, 0, 0.)) * X0, 3, 100, true);
+    robot_comm.MoveTool(Eigen::Translation3d(Eigen::Vector3d(0.4, 0, 0.)) * X0, 3, 100, true);
+  }
 
   robot_comm.Stop();
 
-  pcl::PointCloud<pcl::PointXYZRGBNormal> g_fused_cloud;
-  perception::VisualizePointCloudDrake(g_fused_cloud, &lcm,
-      Eigen::Isometry3d::Identity(), "DRAKE_POINTCLOUD_FUSED");
   return 0;
 }

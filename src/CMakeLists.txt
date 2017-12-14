@@ -38,11 +38,7 @@ add_executable(test_robot_bridge test_robot_bridge.cc)
 target_link_libraries(test_robot_bridge
   perception
   robot_bridge
-  drake::drake
-  # idk why i need to do these two explicitly again?? vtk should be covered by
-  # drake, and pcl stuff are linked in perception, grasp_gen, rgbd_bridge.
-  ${VTK_LIBRARIES}
-  ${PCL_LIBRARIES})
+  drake::drake)
 
 install(TARGETS test_robot_bridge
  DESTINATION ${CMAKE_INSTALL_PREFIX})
