@@ -11,8 +11,6 @@
 #include <stdexcept>
 #include <string>
 
-// #define HAS_BIN
-
 using rgbd_bridge::RealSenseSR300;
 
 struct WorkCell {
@@ -25,18 +23,8 @@ struct WorkCell {
 
   Eigen::Isometry3d world_rot{Eigen::Isometry3d::Identity()};
 
-#ifdef HAS_BIN
-  // Source bin
-  pcl::PointCloud<pcl::PointXYZRGBNormal>::ConstPtr source_bin;
-  Eigen::Isometry3f X_WB;
-
-  // Shake
-  Eigen::Isometry3d X_reset_bin;
-  Eigen::Vector3d shake_vec{Eigen::Vector3d::Zero()};
-#else
   Eigen::Isometry3d X_bin{};
   Eigen::Vector3d bin_half_dim{Eigen::Vector3d(0.13, 0.26, 0.03)};
-#endif
 
   // Dest bin
   Eigen::VectorXd q_place_deg{Eigen::VectorXd::Zero(7)};
@@ -58,44 +46,6 @@ bool CheckReachableConstraint(const Eigen::Isometry3d &pose) {
   }
 }
 
-#ifdef HAS_BIN
-bool CheckGraspIntersectWithBin(
-    const Eigen::Isometry3d& mid_finger,
-    const pcl::KdTreeFLANN<pcl::PointXYZRGBNormal>& bin_kdtree,
-    float* min_sqr_dist) {
-  const double step = 0.01;
-  const int K = 1;
-  std::vector<int> pointIdxNKNSearch(K);
-  std::vector<float> pointNKNSquaredDistance(K);
-
-  *min_sqr_dist = 100;
-  for (double y = -0.07; y <= 0.07; y += step) {
-    Eigen::Vector3d pt = mid_finger * Eigen::Vector3d(0, y, 0);
-    pcl::PointXYZRGBNormal querry;
-    querry.x = pt[0];
-    querry.y = pt[1];
-    querry.z = pt[2];
-
-    if (bin_kdtree.nearestKSearch(querry, K, pointIdxNKNSearch,
-                                  pointNKNSquaredDistance) > 0) {
-      float dist = pointNKNSquaredDistance[0];
-      if (dist < *min_sqr_dist)
-        *min_sqr_dist = dist;
-    } else {
-      // wtf
-      assert(false);
-    }
-  }
-
-  if (*min_sqr_dist <= 4e-4) {
-    //std::cout << "Doesn't intersect " << *min_sqr_dist << "\n";
-    return true;
-  } else {
-    //std::cout << "Intersect " << *min_sqr_dist << "\n";
-    return false;
-  }
-}
-#else
 bool CheckBinIntersection(
     const Eigen::Isometry3d& grasp,
     double gripper_width,
@@ -164,13 +114,10 @@ bool CheckBinIntersection(
   }
 }
 
-#endif
-
 const AntiPodalGrasp* PickBestGrasp(
     const WorkCell& cell,
     const std::vector<AntiPodalGrasp>& all_grasps,
-    const pcl::PointCloud<pcl::PointXYZRGBNormal>::ConstPtr& grasp_cloud,
-    const pcl::KdTreeFLANN<pcl::PointXYZRGBNormal>& bin_kdtree) {
+    const pcl::PointCloud<pcl::PointXYZRGBNormal>::ConstPtr& grasp_cloud) {
   if (all_grasps.empty())
     return nullptr;
 
@@ -182,14 +129,8 @@ const AntiPodalGrasp* PickBestGrasp(
   float best_z = -1e5;
 
   for (const auto& grasp : all_grasps) {
-#ifdef HAS_BIN
-    float min_sqr_dist;
-    if (CheckReachableConstraint(cell.world_rot.inverse() * grasp.hand_pose) &&
-        !CheckGraspIntersectWithBin(grasp.hand_pose, bin_kdtree, &min_sqr_dist)) {
-#else
     if (CheckReachableConstraint(cell.world_rot.inverse() * grasp.hand_pose) &&
         !CheckBinIntersection(grasp.hand_pose, 0.06, cell.X_bin, cell.bin_half_dim)) {
-#endif
       Eigen::Isometry3f mid_finger = grasp.hand_pose.cast<float>();
       // Enclosed points.
       auto enclosed =
@@ -268,36 +209,6 @@ void CloudThread(robot_bridge::RobotBridge *robot_comm,
   }
 }
 
-#ifdef HAS_BIN
-pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr
-SubtractBin(const pcl::PointCloud<pcl::PointXYZRGBNormal>::ConstPtr &cloud,
-            const pcl::KdTreeFLANN<pcl::PointXYZRGBNormal>& bin_kdtree,
-            double dist_thresh) {
-  const int K = 1;
-  std::vector<int> pointIdxNKNSearch(K);
-  std::vector<float> pointNKNSquaredDistance(K);
-
-  pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr ret =
-      boost::make_shared<pcl::PointCloud<pcl::PointXYZRGBNormal>>();
-
-  for (size_t i = 0; i < cloud->size(); i++) {
-    const pcl::PointXYZRGBNormal &searchPoint = cloud->points[i];
-
-    if (bin_kdtree.nearestKSearch(searchPoint, K, pointIdxNKNSearch,
-                              pointNKNSquaredDistance) > 0) {
-      bool add = true;
-      for (size_t i = 0; i < pointNKNSquaredDistance.size(); i++) {
-        float dist = pointNKNSquaredDistance[i];
-        add &= (dist >= dist_thresh * dist_thresh);
-      }
-      if (add)
-        ret->push_back(searchPoint);
-    }
-  }
-  return ret;
-}
-#endif
-
 template <typename T>
 bool IsIdentity(const Eigen::Transform<T, 3, Eigen::Isometry> &transform,
                 T ang_thresh, T pos_thresh) {
@@ -307,55 +218,6 @@ bool IsIdentity(const Eigen::Transform<T, 3, Eigen::Isometry> &transform,
   return (std::fabs(ang_err.angle()) < ang_thresh &&
           pos_err.norm() < pos_thresh);
 }
-
-#ifdef HAS_BIN
-void ShakeBin(
-    robot_bridge::RobotBridge &robot_comm,
-    const Eigen::VectorXd &q_prep_deg,
-    const pcl::PointCloud<pcl::PointXYZRGBNormal>::ConstPtr &bin_cloud,
-    const Eigen::Isometry3d& reset_bin_pose,
-    const Eigen::Vector3d& shake_vec,
-    const Eigen::Isometry3f& bin_tf) {
-  robot_comm.MoveJointDegrees(q_prep_deg, 2, true);
-  Eigen::Isometry3d grasp =
-      bin_tf.cast<double>() * Eigen::Translation3d(Eigen::Vector3d(0, -0.21, -0.05));
-  // grasp.linear().setIdentity();
-  const double z_above = 0.15;
-  auto pre_grasp =
-      Eigen::Translation3d(Eigen::Vector3d(0, 0, z_above)) * grasp;
-
-  // Grab bin
-  robot_comm.MoveTool(pre_grasp, 1.5, 10000, true);
-  robot_comm.MoveTool(grasp, 1.5, 15, true);
-  robot_comm.CloseGripper();
-
-  // Shake
-  bool left = true;
-  std::vector<Eigen::Isometry3d> waypoints;
-  Eigen::Isometry3d cur_pose = robot_comm.GetToolPose();
-  for (int i = 0; i < 6; i++) {
-    if (left) {
-      cur_pose.translation() += shake_vec;
-    } else {
-      cur_pose.translation() -= shake_vec;
-    }
-    left = !left;
-    waypoints.push_back(cur_pose);
-  }
-
-  for (const auto& waypoint : waypoints) {
-    robot_comm.MoveTool(waypoint, .3, 10000, true);
-  }
-
-  robot_comm.MoveTool(reset_bin_pose, 1, 10000, true);
-
-  // Release
-  robot_comm.OpenGripper();
-  cur_pose = robot_comm.GetToolPose();
-  cur_pose.translation()(2) += 0.3;
-  robot_comm.MoveTool(cur_pose, 1.5, 1000, true);
-}
-#endif
 
 bool ExecuteGrasp(robot_bridge::RobotBridge &robot_comm,
                   const WorkCell& cell,
@@ -367,7 +229,7 @@ bool ExecuteGrasp(robot_bridge::RobotBridge &robot_comm,
   double z_above = 0.15;
   auto pre_grasp =
       Eigen::Translation3d(Eigen::Vector3d(0, 0, z_above)) * grasp_pose;
-  auto status = robot_comm.MoveTool(pre_grasp, duration_move_pregrasp, 10000, false);
+  auto status = robot_comm.MoveTool(pre_grasp, duration_move_pregrasp, Eigen::Vector6d::Constant(10000), false);
 
   pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr transformed_obj =
       obj_cloud->makeShared();
@@ -438,8 +300,10 @@ bool ExecuteGrasp(robot_bridge::RobotBridge &robot_comm,
   if (CheckBinIntersection(target, 0.06, cell.X_bin, cell.bin_half_dim))
     return false;
 
+  Eigen::Vector6d F_thresh = Eigen::Vector6d::Constant(10000);
+  F_thresh[5] = 30;
   status = robot_comm.MoveTool(
-      target, duration_move_grasp, 30, true);
+      target, duration_move_grasp, F_thresh, true);
   if (status != robot_bridge::MotionStatus::DONE) {
     std::cout << "ERRRR: " << (int)status << "\n";
   }
@@ -452,7 +316,7 @@ bool ExecuteGrasp(robot_bridge::RobotBridge &robot_comm,
     double duration_lift_up = 1.5;
     Eigen::Isometry3d cur_pose = robot_comm.GetToolPose();
     cur_pose.translation()(2) += 0.3;
-    robot_comm.MoveTool(cur_pose, duration_lift_up, 1000, true);
+    robot_comm.MoveTool(cur_pose, duration_lift_up, Eigen::Vector6d::Constant(10000), true);
     // Check grasp again in case we dropped it.
     grasped = robot_comm.CheckGrasp();
   }
@@ -476,55 +340,6 @@ GetGraspObj(const pcl::PointCloud<pcl::PointXYZRGBNormal>::ConstPtr &input,
   return perception::DownSample<pcl::PointXYZRGBNormal>(obj, 0.004);
 }
 
-#ifdef HAS_BIN
-double FitBin(
-    const pcl::PointCloud<pcl::PointXYZRGBNormal>::ConstPtr &bin,
-    const pcl::PointCloud<pcl::PointXYZRGBNormal>::ConstPtr &scene,
-    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr &aligned_bin,
-    Eigen::Isometry3f *update) {
-
-  pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr tmp =
-      boost::make_shared<pcl::PointCloud<pcl::PointXYZRGBNormal>>();
-
-  double score;
-  Eigen::Isometry3f incremental;
-  update->setIdentity();
-
-  for (int it = 0; ; it++) {
-    if (it == 0) {
-      score = perception::AlignCloud<pcl::PointXYZRGBNormal>(
-          bin, scene, 0.1, tmp, &incremental);
-    } else {
-      score = perception::AlignCloud<pcl::PointXYZRGBNormal>(
-          aligned_bin, scene, 0.1, tmp, &incremental);
-    }
-    *update = incremental * (*update);
-    if (score < 0)
-      return score;
-
-    aligned_bin.swap(tmp);
-
-    if (IsIdentity<float>(incremental, 0.001, 0.0001))
-      break;
-  }
-
-  return score;
-}
-
-bool IsBinClear(
-    const pcl::PointCloud<pcl::PointXYZRGBNormal>::ConstPtr& grasp_cloud,
-    lcm::LCM* lcm) {
-  auto bin_minus_bottom =
-      perception::SubtractTable<pcl::PointXYZRGBNormal>(grasp_cloud, 0.005);
-  bin_minus_bottom = perception::RADOutlierRemoval<pcl::PointXYZRGBNormal>(
-      bin_minus_bottom, 80, 0.03);
-  std::cout << "Grasp cloud size: " << bin_minus_bottom->size() << "\n\n";
-  perception::VisualizePointCloudDrake(*bin_minus_bottom, lcm,
-      Eigen::Isometry3d::Identity(),
-      "DRAKE_POINTCLOUD_BIN_MINUS_BOTTOM");
-  return bin_minus_bottom->size() < 500;
-}
-#else
 bool IsTableClear(
     const pcl::PointCloud<pcl::PointXYZRGBNormal>::ConstPtr& grasp_cloud,
     lcm::LCM* lcm) {
@@ -538,7 +353,6 @@ bool IsTableClear(
   std::cout << "Grasp cloud size: " << bin_minus_bottom->size() << "\n\n";
   return bin_minus_bottom->size() < 500;
 }
-#endif
 
 
 
@@ -613,14 +427,6 @@ int main(int argc, char **argv) {
   // Bin template stuff. This model is scanned in front of the robot. close
   // to front cell.
   {
-#ifdef HAS_BIN
-    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr bin_cloud =
-      boost::make_shared<pcl::PointCloud<pcl::PointXYZRGBNormal>>();
-    pcl::io::loadPCDFile<pcl::PointXYZRGBNormal>("bin.pcd", *bin_cloud);
-    bin_cloud = perception::DownSample<pcl::PointXYZRGBNormal>(bin_cloud, 0.005);
-    bin_cloud = perception::SOROutlierRemoval<pcl::PointXYZRGBNormal>(bin_cloud, 100);
-#endif
-
     front_cell.q_prep_deg <<
       0, 11, 0, -86, 0, 82, 22;
     front_cell.q_scan_left_deg <<
@@ -632,18 +438,7 @@ int main(int argc, char **argv) {
       44, 71, -2, -30, -31, 107, 17;
     front_cell.q_place_deg <<
       -90, 23, 0, -92, 0, 63, 22;
-#ifdef HAS_BIN
-    front_cell.source_bin = bin_cloud->makeShared();
-    front_cell.X_WB.setIdentity();
-    front_cell.X_WB.translation() = Eigen::Vector3f(0.592592, 0.0373415, 0.119681);
-    front_cell.X_WB.linear() = Eigen::Matrix3f(
-        Eigen::AngleAxisf(2. / 180. * M_PI, Eigen::Vector3f::UnitX()));
-    front_cell.X_reset_bin = Eigen::Isometry3d(
-        Eigen::Translation3d(Eigen::Vector3d(0.58, -0.154, 0.04)));
-    front_cell.shake_vec = Eigen::Vector3d(0.08, 0.08, 0);
-#else
     front_cell.X_bin = Eigen::Translation3d(Eigen::Vector3d(0.53, 0, 0.03));
-#endif
     front_cell.world_rot = Eigen::Isometry3d::Identity();
 
     right_cell.q_prep_deg <<
@@ -659,22 +454,7 @@ int main(int argc, char **argv) {
       0, 23, 0, -92, 0, 63, 22;
     right_cell.world_rot = Eigen::Isometry3d(
         Eigen::AngleAxisd(-M_PI / 2., Eigen::Vector3d::UnitZ()));
-#ifdef HAS_BIN
-    auto tmp_cloud = boost::make_shared<pcl::PointCloud<pcl::PointXYZRGBNormal>>();
-    pcl::transformPointCloud(*bin_cloud, *tmp_cloud, right_cell.world_rot.cast<float>());
-    right_cell.source_bin = tmp_cloud;
-
-    right_cell.X_WB.setIdentity();
-    right_cell.X_WB.translation() = Eigen::Vector3f(0.592592, 0.0373415, 0.119681);
-    right_cell.X_WB.linear() = Eigen::Matrix3f(
-        Eigen::AngleAxisf(2. / 180. * M_PI, Eigen::Vector3f::UnitX()));
-    right_cell.X_WB = right_cell.world_rot.cast<float>() * right_cell.X_WB;
-    right_cell.X_reset_bin = right_cell.world_rot * Eigen::Isometry3d(
-        Eigen::Translation3d(Eigen::Vector3d(0.58, -0.154, 0.04)));
-    right_cell.shake_vec = right_cell.world_rot * Eigen::Vector3d(0.08, 0.08, 0);
-#else
     right_cell.X_bin = right_cell.world_rot * Eigen::Translation3d(Eigen::Vector3d(0.53, 0, 0.01));
-#endif
   }
 
   const WorkCell* cur_cell = &front_cell;
@@ -731,32 +511,6 @@ int main(int argc, char **argv) {
     lock1.unlock();
 
     // Cut workspace and minus bin
-    pcl::KdTreeFLANN<pcl::PointXYZRGBNormal> bin_kdtree;
-#ifdef HAS_BIN
-    // Filter bin.
-    Eigen::Isometry3f bin_tf;
-    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr fit_bin =
-        boost::make_shared<pcl::PointCloud<pcl::PointXYZRGBNormal>>();
-    double bin_icp_score = FitBin(
-        cur_cell->source_bin,
-        perception::DownSample<pcl::PointXYZRGBNormal>(fused_cloud, 0.005),
-        fit_bin, &bin_tf);
-    if (bin_icp_score < 0) {
-      assert(false);
-    }
-    perception::VisualizePointCloudDrake(*fit_bin, &lcm,
-        Eigen::Isometry3d::Identity(),
-        "DRAKE_POINTCLOUD_BIN");
-
-    bin_kdtree.setInputCloud(fit_bin);
-
-    auto grasp_cloud =
-        perception::CutWithWorkSpaceConstraints<pcl::PointXYZRGBNormal>(
-            fused_cloud,
-            Eigen::Vector3f(-0.10, -0.16, -0.095),
-            Eigen::Vector3f(0.10, 0.16, 0.105),
-            bin_tf * cur_cell->X_WB);
-#else
     auto grasp_cloud =
         perception::CutWithWorkSpaceConstraints<pcl::PointXYZRGBNormal>(
             fused_cloud,
@@ -770,7 +524,6 @@ int main(int argc, char **argv) {
     //grasp_cloud = perception::SubtractPointsByColor<pcl::PointXYZRGBNormal>(
     //    grasp_cloud, 100, 100, 100);
     // grasp_cloud = perception::SubtractTable<pcl::PointXYZRGBNormal>(grasp_cloud, 0.01);
-#endif
 
     grasp_cloud = perception::DownSample<pcl::PointXYZRGBNormal>(grasp_cloud, 0.004);
     grasp_cloud = perception::SOROutlierRemoval<pcl::PointXYZRGBNormal>(grasp_cloud);
@@ -781,12 +534,6 @@ int main(int argc, char **argv) {
     perception::VisualizePointCloudDrake(*grasp_cloud, &lcm,
                                          Eigen::Isometry3d::Identity(),
                                          "DRAKE_POINTCLOUD_GRASP");
-#ifdef HAS_BIN
-    if (IsBinClear(grasp_cloud, &lcm)) {
-      std::cout << "I am done!!!\n";
-      break;
-    }
-#else
     if (IsTableClear(grasp_cloud, &lcm) || fail_ctr >= 5) {
       std::cout << "Switching bin!!!\n";
       if (cur_cell == &front_cell)
@@ -801,7 +548,6 @@ int main(int argc, char **argv) {
       fail_ctr = 0;
       continue;
     }
-#endif
 
     pcl::io::savePCDFileASCII("grasp.pcd", *grasp_cloud);
 
@@ -818,8 +564,7 @@ int main(int argc, char **argv) {
     const AntiPodalGrasp* best_grasp =
         PickBestGrasp(*cur_cell,
                       all_grasps,
-                      grasp_cloud,
-                      bin_kdtree);
+                      grasp_cloud);
 
     // Make sure we wait till the motion is done.
     robot_comm.WaitForRobotMotionCompletion();
@@ -856,22 +601,6 @@ int main(int argc, char **argv) {
       fail_ctr = 0;
     } else {
       fail_ctr++;
-#ifdef HAS_BIN
-      // Shake bin if we haven't been able to pick up anything for a while.
-      if (fail_ctr >= 2) {
-        ShakeBin(robot_comm,
-                 cur_cell->q_prep_deg,
-                 fit_bin,
-                 cur_cell->X_reset_bin,
-                 cur_cell->shake_vec,
-                 bin_tf * cur_cell->X_WB);
-        fail_ctr = 0;
-        robot_comm.MoveJointDegrees(cur_cell->q_scan_left_deg, true);
-        start_from_left = true;
-
-        continue;
-      }
-#endif
       if (start_from_left) {
         start_from_left = false;
         robot_comm.MoveJointDegrees(cur_cell->q_scan_right_deg, true);

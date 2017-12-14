@@ -45,8 +45,8 @@ int main() {
   X0 = robot_state.get_X_WT();
 
   for (int i = 0; i < 3; i++) {
-    robot_comm.MoveTool(Eigen::Translation3d(Eigen::Vector3d(-0.4, 0, 0.)) * X0, 3, 100, true);
-    robot_comm.MoveTool(Eigen::Translation3d(Eigen::Vector3d(0.4, 0, 0.)) * X0, 3, 100, true);
+    robot_comm.MoveTool(Eigen::Translation3d(Eigen::Vector3d(-0.4, 0, 0.)) * X0, 3, Eigen::Vector6d::Constant(10000), true);
+    robot_comm.MoveTool(Eigen::Translation3d(Eigen::Vector3d(0.4, 0, 0.)) * X0, 3, Eigen::Vector6d::Constant(10000), true);
   }
 
   robot_comm.Stop();
