@@ -40,8 +40,17 @@ target_link_libraries(test_robot_bridge
   robot_bridge
   drake::drake)
 
+add_executable(test_plate test_plate.cc)
+target_link_libraries(test_plate
+  perception
+  robot_bridge
+  drake::drake)
+
 install(TARGETS test_robot_bridge
- DESTINATION ${CMAKE_INSTALL_PREFIX})
+  DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+install(TARGETS test_plate
+  DESTINATION ${CMAKE_INSTALL_PREFIX})
 
 install(TARGETS clutter_clearing2
- DESTINATION ${CMAKE_INSTALL_PREFIX})
+  DESTINATION ${CMAKE_INSTALL_PREFIX})

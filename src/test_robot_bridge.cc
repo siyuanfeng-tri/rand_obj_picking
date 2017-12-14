@@ -32,10 +32,12 @@ int main() {
   robot_comm.Start();
 
   Eigen::VectorXd q = Eigen::VectorXd::Zero(7);
+  Eigen::VectorXd q1 = Eigen::VectorXd::Zero(7);
   q[1] = 45;
   q[3] = 1;
   q[5] = 45;
-  //q << 0, 40, -0, -77, -0, 63, -56;
+
+  q1 << 0, 40, -0, -77, -0, 63, -56;
   robot_comm.MoveJointDegrees(q, 2, true);
 
   robot_bridge::RobotState robot_state(&tree, &tool_frame);
@@ -46,6 +48,7 @@ int main() {
 
   for (int i = 0; i < 3; i++) {
     robot_comm.MoveTool(Eigen::Translation3d(Eigen::Vector3d(-0.4, 0, 0.)) * X0, 3, Eigen::Vector6d::Constant(10000), true);
+    robot_comm.MoveJointDegrees(q1, 2, true);
     robot_comm.MoveTool(Eigen::Translation3d(Eigen::Vector3d(0.4, 0, 0.)) * X0, 3, Eigen::Vector6d::Constant(10000), true);
   }
 
