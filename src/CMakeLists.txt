@@ -31,7 +31,6 @@ target_link_libraries(clutter_clearing2
   drake::drake
   # idk why i need to do these two explicitly again?? vtk should be covered by
   # drake, and pcl stuff are linked in perception, grasp_gen, rgbd_bridge.
-  ${VTK_LIBRARIES}
   ${PCL_LIBRARIES})
 
 add_executable(test_robot_bridge test_robot_bridge.cc)

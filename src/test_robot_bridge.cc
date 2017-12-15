@@ -38,7 +38,7 @@ int main() {
   q[5] = 45;
 
   q1 << 0, 40, -0, -77, -0, 63, -56;
-  robot_comm.MoveJointDegrees(q, 2, true);
+  robot_comm.MoveJointDegrees(q1, 2, true);
 
   robot_bridge::RobotState robot_state(&tree, &tool_frame);
   Eigen::Isometry3d X0;
@@ -46,12 +46,17 @@ int main() {
   robot_comm.GetRobotState(&robot_state);
   X0 = robot_state.get_X_WT();
 
+  Eigen::Vector6d gains0 = Eigen::Vector6d::Ones();
+  gains0.head<3>().setZero();
   for (int i = 0; i < 3; i++) {
-    robot_comm.MoveTool(Eigen::Translation3d(Eigen::Vector3d(-0.4, 0, 0.)) * X0, 3, Eigen::Vector6d::Constant(10000), true);
-    robot_comm.MoveJointDegrees(q1, 2, true);
-    robot_comm.MoveTool(Eigen::Translation3d(Eigen::Vector3d(0.4, 0, 0.)) * X0, 3, Eigen::Vector6d::Constant(10000), true);
+    robot_comm.MoveTool(Eigen::Translation3d(Eigen::Vector3d(-0.4, 0, 0.)) * X0, 3, true);
+    std::cout << robot_comm.GetJointPositionDegrees().transpose() << "\n";
+
+    robot_comm.MoveTool(Eigen::Translation3d(Eigen::Vector3d(0.4, 0, 0.)) * X0, gains0, 3, true);
   }
 
+  while(true)
+    ;
   robot_comm.Stop();
 
   return 0;

@@ -229,7 +229,7 @@ bool ExecuteGrasp(robot_bridge::RobotBridge &robot_comm,
   double z_above = 0.15;
   auto pre_grasp =
       Eigen::Translation3d(Eigen::Vector3d(0, 0, z_above)) * grasp_pose;
-  auto status = robot_comm.MoveTool(pre_grasp, duration_move_pregrasp, Eigen::Vector6d::Constant(10000), false);
+  auto status = robot_comm.MoveTool(pre_grasp, duration_move_pregrasp, false);
 
   pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr transformed_obj =
       obj_cloud->makeShared();
@@ -316,7 +316,7 @@ bool ExecuteGrasp(robot_bridge::RobotBridge &robot_comm,
     double duration_lift_up = 1.5;
     Eigen::Isometry3d cur_pose = robot_comm.GetToolPose();
     cur_pose.translation()(2) += 0.3;
-    robot_comm.MoveTool(cur_pose, duration_lift_up, Eigen::Vector6d::Constant(10000), true);
+    robot_comm.MoveTool(cur_pose, duration_lift_up, true);
     // Check grasp again in case we dropped it.
     grasped = robot_comm.CheckGrasp();
   }
