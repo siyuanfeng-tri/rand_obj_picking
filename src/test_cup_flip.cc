@@ -117,7 +117,7 @@ int main(int argc, char **argv) {
   getchar();
 
   Eigen::Isometry3d grasp_in_cup_frame =
-      Eigen::Translation3d(Eigen::Vector3d(0, 0, 0.03)) *
+      Eigen::Translation3d(Eigen::Vector3d(0, 0, 0.04)) *
       Eigen::AngleAxis<double>(-M_PI / 4., Eigen::Vector3d::UnitZ()) *
       Eigen::AngleAxis<double>(-M_PI / 4., Eigen::Vector3d::UnitY());
 

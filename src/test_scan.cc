@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
 
   std::function<Eigen::Vector2f(const Eigen::Vector3f &)> proj_func =
       std::bind(&rgbd_bridge::RealSenseSR300::Project, &camera_interface, depth_type, std::placeholders::_1);
-  perception::PointCloudFusion fusion(proj_func, 0.002);
+  perception::PointCloudFusion fusion(proj_func, 0.001);
 
   robot_comm.MoveJointDegrees(qs.front(), 2, true);
 
@@ -118,14 +118,12 @@ int main(int argc, char** argv) {
 
   robot_comm.Stop();
 
-  /*
   auto cloud =
     perception::CutWithWorkSpaceConstraints<pcl::PointXYZRGBNormal>(
         fused_cloud,
-        Eigen::Vector3f(0.43, -0.1, -0.01),
-        Eigen::Vector3f(0.8, 0.15, 0.2));
-  */
-  auto cloud = perception::SubtractTable<pcl::PointXYZRGBNormal>(fused_cloud, 0.01);
+        Eigen::Vector3f(0.48, -0.1, -0.01),
+        Eigen::Vector3f(0.68, 0.1, 0.2));
+  cloud = perception::SubtractTable<pcl::PointXYZRGBNormal>(cloud, 0.005);
   cloud = perception::SOROutlierRemoval<pcl::PointXYZRGBNormal>(cloud);
 
   pcl::io::savePCDFileASCII(std::string(argv[2]), *cloud);
