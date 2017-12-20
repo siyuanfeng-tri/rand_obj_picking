@@ -367,12 +367,6 @@ int main(int argc, char **argv) {
   // Setup camera and gripper frames.
   Eigen::Isometry3d X_7C = Eigen::Isometry3d::Identity();
   // to rgb
-  /*
-  X_7C.translation() = Eigen::Vector3d(-0.012065, 0.04737, 0.135);
-  X_7C =
-      Eigen::AngleAxisd((-22. + 90.) * M_PI / 180, Eigen::Vector3d::UnitZ()) *
-      X_7C * Eigen::AngleAxisd(12.71 * M_PI / 180, Eigen::Vector3d::UnitX());
-  */
   X_7C.matrix() <<
         0.3826,    -0.880474,      0.27997,   -0.0491369,
         0.923914,     0.364806,    -0.115324,   0.00836689,

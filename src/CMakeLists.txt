@@ -45,6 +45,12 @@ target_link_libraries(test_plate
   robot_bridge
   drake::drake)
 
+add_executable(test_cup_flip test_cup_flip.cc)
+target_link_libraries(test_cup_flip
+  perception
+  robot_bridge
+  drake::drake)
+
 add_executable(test_scan test_scan.cc)
 target_link_libraries(test_scan
   perception
@@ -53,13 +59,22 @@ target_link_libraries(test_scan
   drake::drake
   ${PCL_LIBRARIES})
 
+add_executable(test_grasp test_grasp.cc)
+target_link_libraries(test_grasp grasp_gen perception drake::drake ${PCL_LIBRARIES})
+
 install(TARGETS test_robot_bridge
   DESTINATION ${CMAKE_INSTALL_PREFIX})
 
 install(TARGETS test_plate
   DESTINATION ${CMAKE_INSTALL_PREFIX})
 
+install(TARGETS test_cup_flip
+  DESTINATION ${CMAKE_INSTALL_PREFIX})
+
 install(TARGETS test_scan
+  DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+install(TARGETS test_grasp
   DESTINATION ${CMAKE_INSTALL_PREFIX})
 
 install(TARGETS clutter_clearing2
