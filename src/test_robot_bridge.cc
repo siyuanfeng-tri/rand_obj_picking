@@ -46,6 +46,7 @@ int main() {
   robot_comm.GetRobotState(&robot_state);
   X0 = robot_state.get_X_WT();
 
+  /*
   Eigen::Vector6d gains0 = Eigen::Vector6d::Ones();
   gains0.head<3>().setZero();
   for (int i = 0; i < 3; i++) {
@@ -54,6 +55,10 @@ int main() {
 
     robot_comm.MoveTool(Eigen::Translation3d(Eigen::Vector3d(0.4, 0, 0.)) * X0, gains0, 3, true);
   }
+  */
+
+  robot_comm.MoveTool(
+      X0 * Eigen::AngleAxisd(M_PI/2., Eigen::Vector3d::UnitY()), 1, true);
 
   while(true)
     ;

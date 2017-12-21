@@ -5,30 +5,10 @@
 #include "robot_bridge/iiwa_controller.h"
 #include "rgbd_bridge/real_sense_sr300.h"
 
+#include "util.h"
+
 #include <iostream>
 #include <fstream>
-
-std::vector<Eigen::VectorXd> read_q(const std::string& file_name, int line_size) {
-  std::vector<Eigen::VectorXd> setpoints;
-
-  std::ifstream ifs;
-  ifs.open(file_name, std::ifstream::in);
-  if (!ifs.is_open())
-    return setpoints;
-
-  while(ifs.peek() != EOF) {
-    Eigen::VectorXd q(line_size);
-    for (int i = 0; i < line_size; i++) {
-      ifs >> q(i);
-      if (ifs.eof() || ifs.fail()) {
-        return setpoints;
-      }
-    }
-    setpoints.push_back(q);
-  }
-
-  return setpoints;
-}
 
 int main(int argc, char** argv) {
   if (argc != 3) {
@@ -81,7 +61,7 @@ int main(int argc, char** argv) {
 
   std::function<Eigen::Vector2f(const Eigen::Vector3f &)> proj_func =
       std::bind(&rgbd_bridge::RealSenseSR300::Project, &camera_interface, depth_type, std::placeholders::_1);
-  perception::PointCloudFusion fusion(proj_func, 0.001);
+  perception::PointCloudFusion fusion(proj_func, 0.002);
 
   robot_comm.MoveJointDegrees(qs.front(), 2, true);
 
@@ -118,16 +98,17 @@ int main(int argc, char** argv) {
 
   robot_comm.Stop();
 
+  /*
   auto cloud =
     perception::CutWithWorkSpaceConstraints<pcl::PointXYZRGBNormal>(
         fused_cloud,
         Eigen::Vector3f(0.48, -0.1, -0.01),
         Eigen::Vector3f(0.68, 0.1, 0.2));
   cloud = perception::SubtractTable<pcl::PointXYZRGBNormal>(cloud, 0.005);
-  cloud = perception::SOROutlierRemoval<pcl::PointXYZRGBNormal>(cloud);
+  */
+  auto cloud = perception::SOROutlierRemoval<pcl::PointXYZRGBNormal>(fused_cloud);
 
   pcl::io::savePCDFileASCII(std::string(argv[2]), *cloud);
-
 
   return 0;
 }

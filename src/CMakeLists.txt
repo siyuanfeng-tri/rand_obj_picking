@@ -45,14 +45,24 @@ target_link_libraries(test_plate
   robot_bridge
   drake::drake)
 
-add_executable(test_cup_flip test_cup_flip.cc)
+add_executable(test_cup_flip test_cup_flip.cc util.cc)
 target_link_libraries(test_cup_flip
   perception
   robot_bridge
-  drake::drake)
+  rgbd_bridge
+  drake::drake
+  ${PCL_LIBRARIES})
 
-add_executable(test_scan test_scan.cc)
+add_executable(test_scan test_scan.cc util.cc)
 target_link_libraries(test_scan
+  perception
+  robot_bridge
+  rgbd_bridge
+  drake::drake
+  ${PCL_LIBRARIES})
+
+add_executable(test_fit test_fit.cc util.cc)
+target_link_libraries(test_fit
   perception
   robot_bridge
   rgbd_bridge
@@ -72,6 +82,9 @@ install(TARGETS test_cup_flip
   DESTINATION ${CMAKE_INSTALL_PREFIX})
 
 install(TARGETS test_scan
+  DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+install(TARGETS test_fit
   DESTINATION ${CMAKE_INSTALL_PREFIX})
 
 install(TARGETS test_grasp
