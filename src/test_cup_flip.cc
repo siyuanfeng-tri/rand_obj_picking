@@ -50,17 +50,26 @@ void MoveFromTrayToStage(
         exit(-1);
       }
     } else {
+      Eigen::Vector6d F_thresh = Eigen::Vector6d::Constant(50);
+      F_thresh[5] = 20;
+
       robot_comm.MoveJointRadians(q_rad[0], true);
-      robot_comm.MoveJointRadians(q_rad[1], 1, true);
+      robot_comm.MoveTool(X0, 0.5, F_thresh, true);
+
+      // robot_comm.MoveJointRadians(q_rad[1], 0.5, true);
 
       robot_comm.CloseGripper();
 
-      robot_comm.MoveJointRadians(q_rad[0], 1, true);
+      robot_comm.MoveJointRadians(q_rad[0], true);
       robot_comm.MoveJointRadians(q_rad[2], true);
 
+      robot_comm.MoveTool(X1, 0.5, F_thresh, true);
+
+      /*
       robot_comm.MoveStraightUntilTouch(
         Eigen::Vector3d::UnitZ(), -0.1,
         Eigen::Vector3d(100, 100, 20), true);
+      */
 
       robot_comm.OpenGripper();
 
@@ -122,7 +131,6 @@ void FlipCup(
   // rotate 1
   X0 = X0 * Eigen::AngleAxis<double>(M_PI / 2., Eigen::Vector3d::UnitY());
   robot_comm.MoveTool(X0, 2., Eigen::Vector6d::Constant(50), true);
-  usleep(3e5);
 
   // put down.
   X0 = Eigen::Translation3d(Eigen::Vector3d(0, 0, -kLiftZ)) * X0;
@@ -136,7 +144,6 @@ void FlipCup(
   // rewind
   X0 = X0 * Eigen::AngleAxis<double>(-M_PI / 2., Eigen::Vector3d::UnitY());
   robot_comm.MoveTool(X0, 2., Eigen::Vector6d::Constant(50), true);
-  usleep(3e5);
 
   // grab
   robot_comm.CloseGripper();
@@ -148,7 +155,6 @@ void FlipCup(
   // rotate 1
   X0 = X0 * Eigen::AngleAxis<double>(M_PI / 2., Eigen::Vector3d::UnitY());
   robot_comm.MoveTool(X0, 2., Eigen::Vector6d::Constant(50), true);
-  usleep(3e5);
 
   // put down.
   X0 = Eigen::Translation3d(Eigen::Vector3d(0, 0, -kLiftZ)) * X0;
@@ -160,7 +166,6 @@ void FlipCup(
   // rotate 2
   X0 = X0 * Eigen::AngleAxis<double>(-M_PI / 4., Eigen::Vector3d::UnitY());
   robot_comm.MoveTool(X0, 1., Eigen::Vector6d::Constant(50), true);
-  usleep(3e5);
 
   // grab
   robot_comm.CloseGripper();
@@ -412,7 +417,7 @@ int main(int argc, char **argv) {
     // try flip.
     std::cout << "score: " << score << "\n";
     // Normal good fit should be around 1.x e-5
-    if (score > 4e-5) {
+    if (score > 3e-4) {
       getchar();
     }
 
@@ -451,13 +456,19 @@ int main(int argc, char **argv) {
       Eigen::AngleAxisd(-M_PI / 2., Eigen::Vector3d::UnitZ());
     robot_comm.MoveTool(X_dish_tray0, 1, true);
 
+    /*
     robot_comm.MoveStraightUntilTouch(
         Eigen::Vector3d::UnitZ(), -0.1,
         Eigen::Vector3d(100, 100, 20), true);
+    */
+    Eigen::Vector6d F_thresh = Eigen::Vector6d::Constant(50);
+    F_thresh[5] = 20;
+    robot_comm.MoveTool(
+        Eigen::Translation3d(Eigen::Vector3d(0, 0, -0.2)) * X_dish_tray0, 1.5, F_thresh, true);
 
     robot_comm.OpenGripper();
 
-    robot_comm.MoveTool(X_dish_tray0, 2, true);
+    robot_comm.MoveTool(X_dish_tray0, 1, true);
   }
 
   while(true) {
