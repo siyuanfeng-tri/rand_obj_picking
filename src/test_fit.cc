@@ -41,10 +41,11 @@ int main(int argc, char** argv) {
   pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr fitted =
       boost::make_shared<pcl::PointCloud<pcl::PointXYZRGBNormal>>();
 
+  double score;
   FitObj(
       perception::DownSample<pcl::PointXYZRGBNormal>(model, 0.004),
       perception::DownSample<pcl::PointXYZRGBNormal>(scene, 0.004),
-      fitted, &tf, &lcm);
+      fitted, &tf, &score, &lcm);
 
   std::cout << tf.matrix() << "\n";
 }

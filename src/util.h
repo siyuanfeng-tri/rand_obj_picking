@@ -17,9 +17,18 @@ bool IsIdentity(const Eigen::Transform<T, 3, Eigen::Isometry> &transform,
 std::vector<Eigen::VectorXd> read_q(
     const std::string& file_name, int line_size);
 
-double FitObj(
+void FitObj(
     const pcl::PointCloud<pcl::PointXYZRGBNormal>::ConstPtr &obj,
     const pcl::PointCloud<pcl::PointXYZRGBNormal>::ConstPtr &scene,
+    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr &aligned_obj,
+    Eigen::Isometry3f *obj_pose,
+    double *score,
+    lcm::LCM* lcm);
+
+double ThreadedFitObj(
+    const pcl::PointCloud<pcl::PointXYZRGBNormal>::ConstPtr &obj,
+    const pcl::PointCloud<pcl::PointXYZRGBNormal>::ConstPtr &scene,
+    const std::vector<Eigen::Isometry3f>& obj_initial_guess,
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr &aligned_obj,
     Eigen::Isometry3f *obj_pose,
     lcm::LCM* lcm);
