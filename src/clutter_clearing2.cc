@@ -414,7 +414,7 @@ int main(int argc, char **argv) {
                                   depth_type, &fusion, &lcm);
 
   // Grasp generator.
-  AntiPodalGraspPlanner grasp_planner(GRASP_PARAM_PATH);
+  AntiPodalGraspPlanner grasp_planner(std::string(CONFIG_DIR) + "grasp_params");
 
   // Task related magic numbers.
   WorkCell front_cell;

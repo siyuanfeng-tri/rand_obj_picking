@@ -7,7 +7,7 @@ int main(int argc, char **argv) {
     exit(-1);
   }
 
-  AntiPodalGraspPlanner grasp_planner(GRASP_PARAM_PATH);
+  AntiPodalGraspPlanner grasp_planner(std::string(CONFIG_DIR) + "grasp_params");
 
   pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud =
       boost::make_shared<pcl::PointCloud<pcl::PointXYZRGBNormal>>();
