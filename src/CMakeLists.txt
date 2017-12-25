@@ -69,6 +69,14 @@ target_link_libraries(test_fit
   drake::drake
   ${PCL_LIBRARIES})
 
+add_executable(test_cluster test_cluster.cc)
+target_link_libraries(test_cluster
+  perception
+  robot_bridge
+  rgbd_bridge
+  drake::drake
+  ${PCL_LIBRARIES})
+
 add_executable(test_grasp test_grasp.cc)
 target_link_libraries(test_grasp grasp_gen perception drake::drake ${PCL_LIBRARIES})
 
@@ -85,6 +93,9 @@ install(TARGETS test_scan
   DESTINATION ${CMAKE_INSTALL_PREFIX})
 
 install(TARGETS test_fit
+  DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+install(TARGETS test_cluster
   DESTINATION ${CMAKE_INSTALL_PREFIX})
 
 install(TARGETS test_grasp

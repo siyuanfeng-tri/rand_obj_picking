@@ -37,14 +37,21 @@ int main() {
   q[3] = 1;
   q[5] = 45;
 
-  q1 << 0, 40, -0, -77, -0, 63, -56;
+  q1 << 20, 33, 2, -96, -1, 50, 44;
   robot_comm.MoveJointDegrees(q1, 2, true);
 
+  robot_comm.MoveStraightUntilTouch(
+      Eigen::Vector3d::UnitZ(), -0.1,
+      Eigen::Vector3d(100, 100, 20), true);
+
+
+  /*
   robot_bridge::RobotState robot_state(&tree, &tool_frame);
   Eigen::Isometry3d X0;
 
   robot_comm.GetRobotState(&robot_state);
   X0 = robot_state.get_X_WT();
+  */
 
   /*
   Eigen::Vector6d gains0 = Eigen::Vector6d::Ones();
@@ -57,8 +64,10 @@ int main() {
   }
   */
 
+  /*
   robot_comm.MoveTool(
       X0 * Eigen::AngleAxisd(M_PI/2., Eigen::Vector3d::UnitY()), 1, true);
+  */
 
   while(true)
     ;
