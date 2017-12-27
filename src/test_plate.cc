@@ -45,12 +45,16 @@ int main(int argc, char **argv) {
     // Go straight down.
     robot_comm.MoveStraightUntilTouch(
         Eigen::Vector3d::UnitZ(), -0.1,
-        Eigen::Vector3d(100, 100, 15), true);
+        Eigen::Vector3d(100, 100, 15),
+        Eigen::Vector3d::Constant(-100),
+        true);
 
     // Push in.
     robot_comm.MoveStraightUntilTouch(
         Eigen::Vector3d::UnitY(), 0.03,
-        Eigen::Vector3d(100, 20, 50), true);
+        Eigen::Vector3d(100, 20, 50),
+        Eigen::Vector3d::Constant(-100),
+        true);
 
     // Lift up.
     robot_comm.GetRobotState(&robot_state);
@@ -58,19 +62,19 @@ int main(int argc, char **argv) {
     X0.linear().setIdentity();
     X0.translation()[1] += 0.005;
     X0.translation()[2] += 0.02;
-    robot_comm.MoveTool(X0, 1, Eigen::Vector6d::Constant(50), true);
+    robot_comm.MoveTool(X0, 1, true);
 
     // Curl in.
     robot_comm.GetRobotState(&robot_state);
     X0 = robot_comm.GetDesiredToolPose();
     X0.linear() = Eigen::AngleAxis<double>(35. / 180. * M_PI, Eigen::Vector3d::UnitX()).toRotationMatrix();
     X0.translation()[1] += 0.01;
-    robot_comm.MoveTool(X0, 1, Eigen::Vector6d::Constant(50), true);
+    robot_comm.MoveTool(X0, 1, true);
 
     // Go in more.
     // X0 = robot_comm.GetDesiredToolPose();
     // X0 = X0 * Eigen::Translation<double, 3>(Eigen::Vector3d(0, 0, -0.02));
-    // robot_comm.MoveTool(X0, 1, Eigen::Vector6d::Constant(50), true);
+    // robot_comm.MoveTool(X0, 1, true);
 
     // Grab.
     robot_comm.CloseGripper();
@@ -78,7 +82,7 @@ int main(int argc, char **argv) {
     // Lift.
     X0 = robot_comm.GetDesiredToolPose();
     X0.translation()[2] += 0.1;
-    robot_comm.MoveTool(X0, 1, Eigen::Vector6d::Constant(50), true);
+    robot_comm.MoveTool(X0, 1, true);
     robot_comm.MoveJointDegrees(q1, 2, true);
 
     // Reset.

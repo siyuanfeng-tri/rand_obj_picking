@@ -302,10 +302,10 @@ bool ExecuteGrasp(robot_bridge::RobotBridge &robot_comm,
   if (CheckBinIntersection(target, 0.06, cell.X_bin, cell.bin_half_dim))
     return false;
 
-  Eigen::Vector6d F_thresh = Eigen::Vector6d::Constant(10000);
-  F_thresh[5] = 30;
+  Eigen::Vector6d F_u = Eigen::Vector6d::Constant(100);
+  F_u[5] = 30;
   status = robot_comm.MoveTool(
-      target, gains, duration_move_grasp, F_thresh, true);
+      target, gains, duration_move_grasp, F_u, Eigen::Vector6d::Constant(-100), true);
   if (status != robot_bridge::MotionStatus::DONE) {
     std::cout << "ERRRR: " << (int)status << "\n";
   }

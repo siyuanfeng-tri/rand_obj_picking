@@ -69,7 +69,9 @@ void MoveFromTrayToStage(
 
       robot_comm.MoveStraightUntilTouch(
         Eigen::Vector3d::UnitZ(), -0.2,
-        Eigen::Vector3d(100, 100, 20), true);
+        Eigen::Vector3d(100, 100, 20),
+        Eigen::Vector3d::Constant(-100),
+        true);
 
       robot_comm.OpenGripper();
 
@@ -134,9 +136,9 @@ void FlipCup(
 
   // put down.
   X0 = Eigen::Translation3d(Eigen::Vector3d(0, 0, -kLiftZ)) * X0;
-  Eigen::Vector6d F_thresh = Eigen::Vector6d::Constant(50);
-  F_thresh[5] = 25;
-  robot_comm.MoveTool(X0, kLinMotionDt, F_thresh, true);
+  Eigen::Vector6d F_u = Eigen::Vector6d::Constant(50);
+  F_u[5] = 25;
+  robot_comm.MoveTool(X0, kLinMotionDt, F_u, Eigen::Vector6d::Constant(-50), true);
 
   // drop
   robot_comm.OpenGripper();
@@ -159,14 +161,15 @@ void FlipCup(
 
   // put down.
   X0 = Eigen::Translation3d(Eigen::Vector3d(0, 0, -kLiftZ)) * X0;
-  robot_comm.MoveTool(X0, kLinMotionDt, F_thresh, true);
+  robot_comm.MoveTool(X0, kLinMotionDt, F_u, Eigen::Vector6d::Constant(-50), true);
 
   // drop
   robot_comm.OpenGripper();
 
   // rotate 2
   X0 = X0 * Eigen::AngleAxis<double>(-M_PI / 4., Eigen::Vector3d::UnitY());
-  X0 = X0 * Eigen::AngleAxis<double>(-0.2, Eigen::Vector3d::UnitZ());
+  // rotate a bit more to avoid the finger pad getting caught on the handle when releasing. in the dish rack.
+  X0 = X0 * Eigen::AngleAxis<double>(-0.35, Eigen::Vector3d::UnitZ());
   // X0 = X0 * Eigen::Translation3d(Eigen::Vector3d(-0.005, 0, 0));
   robot_comm.MoveTool(X0, 1.5, true);
 
@@ -528,12 +531,12 @@ int main(int argc, char **argv) {
 
     robot_comm.MoveStraightUntilTouch(
         Eigen::Vector3d::UnitZ(), -0.2,
-        Eigen::Vector3d(100, 100, 25), true);
+        Eigen::Vector3d(100, 100, 25),
+        Eigen::Vector3d::Constant(-100),
+        true);
 
     robot_comm.OpenGripper();
 
-    // Rotate a bit to make sure gripper pad is clear of the handle, so the cup won't catch.
-    // robot_comm.MoveTool(robot_comm.GetToolPose() * Eigen::AngleAxisd(-0.6, Eigen::Vector3d::UnitZ()), 0.15, true);
     robot_comm.MoveTool(X_dish_tray0, 1, true);
   }
 

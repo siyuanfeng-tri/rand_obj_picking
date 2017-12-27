@@ -42,7 +42,9 @@ int main() {
 
   robot_comm.MoveStraightUntilTouch(
       Eigen::Vector3d::UnitZ(), -0.1,
-      Eigen::Vector3d(100, 100, 20), true);
+      Eigen::Vector3d(100, 100, 20),
+      Eigen::Vector3d::Constant(-100),
+      true);
 
 
   /*
