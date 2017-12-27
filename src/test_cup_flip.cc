@@ -56,6 +56,7 @@ void MoveFromTrayToStage(
       F_thresh[5] = 20;
 
       robot_comm.MoveJointRadians(q_rad[0], true);
+
       // robot_comm.MoveTool(X0, 1, F_thresh, true);
       robot_comm.MoveTool(X0, 1, true);
 
@@ -165,6 +166,7 @@ void FlipCup(
 
   // rotate 2
   X0 = X0 * Eigen::AngleAxis<double>(-M_PI / 4., Eigen::Vector3d::UnitY());
+  X0 = X0 * Eigen::AngleAxis<double>(-0.2, Eigen::Vector3d::UnitZ());
   // X0 = X0 * Eigen::Translation3d(Eigen::Vector3d(-0.005, 0, 0));
   robot_comm.MoveTool(X0, 1.5, true);
 
