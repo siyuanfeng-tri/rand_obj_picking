@@ -6,8 +6,6 @@
 #include "robot_bridge/iiwa_controller.h"
 #include "robot_bridge/iiwa_controller.h"
 
-#include <pcl/segmentation/extract_clusters.h>
-
 #include "util.h"
 
 struct WorkSpace {
@@ -67,8 +65,11 @@ bool MoveFromTrayToStage(
       robot_comm.MoveJointRadians(q_rad[0], true);
 
       // Approach
-      Eigen::Vector6d F_u = Eigen::Vector6d::Constant(25);
-      Eigen::Vector6d F_l = Eigen::Vector6d::Constant(-25);
+      Eigen::Vector6d F_u = Eigen::Vector6d::Constant(50);
+      Eigen::Vector6d F_l = Eigen::Vector6d::Constant(-50);
+      F_u[5] = 25;
+      F_l[5] = -25;
+
       auto status = robot_comm.MoveTool(X0, 1, F_u, F_l, true);
       // If we do hit stuff, go back slowly, and abort.
       if (status == robot_bridge::MotionStatus::ERR_FORCE_SAFETY) {
@@ -227,7 +228,7 @@ void FlipCup(const Eigen::Isometry3d &cup_pose,
 
   // put down.
   X0 = Eigen::Translation3d(Eigen::Vector3d(0, 0, -kLiftZ)) * X0;
-  if (robot_comm.MoveTool(X0, kLinMotionDt, F_u, F_l, true) != robot_bridge::MotionStatus::DONE) {
+  if (robot_comm.MoveTool(X0, kLinMotionDt, true) != robot_bridge::MotionStatus::DONE) {
     throw std::runtime_error("Motion error.");
   }
 
@@ -262,7 +263,7 @@ void FlipCup(const Eigen::Isometry3d &cup_pose,
 
   // put down.
   X0 = Eigen::Translation3d(Eigen::Vector3d(0, 0, -kLiftZ)) * X0;
-  if (robot_comm.MoveTool(X0, kLinMotionDt, F_u, F_l, true) != robot_bridge::MotionStatus::DONE) {
+  if (robot_comm.MoveTool(X0, kLinMotionDt, true) != robot_bridge::MotionStatus::DONE) {
     throw std::runtime_error("Motion error.");
   }
 
@@ -293,6 +294,8 @@ void FlipCup(const Eigen::Isometry3d &cup_pose,
   }
 }
 
+// Scans an area and returns the merged point cloud.
+// set points are defined in @p &qs_deg, which is assumed to be in degrees!
 pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr
 Scan(const rgbd_bridge::RealSenseSR300 &camera_interface,
      const std::vector<Eigen::VectorXd> &qs_deg,
@@ -339,37 +342,6 @@ Scan(const rgbd_bridge::RealSenseSR300 &camera_interface,
   }
 
   return fused_cloud->makeShared();
-}
-
-std::vector<pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr>
-GetClusters(const pcl::PointCloud<pcl::PointXYZRGBNormal>::ConstPtr &input) {
-  pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree =
-      boost::make_shared<pcl::search::KdTree<pcl::PointXYZRGBNormal>>();
-  tree->setInputCloud(input);
-
-  std::vector<pcl::PointIndices> cluster_indices;
-  pcl::EuclideanClusterExtraction<pcl::PointXYZRGBNormal> ec;
-  ec.setClusterTolerance(0.005);
-  ec.setMinClusterSize(5000);
-  ec.setSearchMethod(tree);
-  ec.setInputCloud(input);
-  ec.extract(cluster_indices);
-
-  std::vector<pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr> clusters(
-      cluster_indices.size());
-  int ctr = 0;
-  for (const auto &indices : cluster_indices) {
-    clusters[ctr] =
-        boost::make_shared<pcl::PointCloud<pcl::PointXYZRGBNormal>>();
-    for (int i : indices.indices) {
-      clusters[ctr]->points.push_back(input->points[i]);
-    }
-    clusters[ctr]->width = clusters[ctr]->points.size();
-    clusters[ctr]->height = 1;
-    clusters[ctr]->is_dense = true;
-  }
-
-  return clusters;
 }
 
 std::vector<Eigen::Isometry3d> GeneratePlacementGoalsAboveRack() {
@@ -534,7 +506,7 @@ int main(int argc, char **argv) {
     robot_comm.MoveJointDegrees(tray_prep_q_deg, 1.5, false);
 
     // Segement individual cups.
-    auto clusters = GetClusters(scene);
+    auto clusters = perception::SplitIntoClusters<pcl::PointXYZRGBNormal>(scene, 0.005, 5000, 100000);
     std::cout << "NUMBER OF MUGS: " << clusters.size() << "\n";
     if (clusters.size() == 0) {
       std::cout << "NO MORE MUGS.\n";
