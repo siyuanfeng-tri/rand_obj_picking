@@ -409,8 +409,10 @@ int main(int argc, char **argv) {
   // Declare a bunch of stuff
   lcm::LCM lcm;
   RigidBodyTree<double> tree;
+  const std::string robot_model_path = std::string(MODEL_DIR) +
+      "iiwa_description/urdf/iiwa14_polytope_collision.urdf";
   drake::parsers::urdf::AddModelInstanceFromUrdfFile(
-      IIWA_MODEL_PATH, drake::multibody::joints::kFixed, nullptr, &tree);
+      robot_model_path, drake::multibody::joints::kFixed, nullptr, &tree);
 
   // Camera "C" frame relative to link7's frame.
   Eigen::Isometry3d X_7C = Eigen::Isometry3d::Identity();
@@ -418,7 +420,7 @@ int main(int argc, char **argv) {
       -0.115324, 0.00836689, -0.000594751, 0.302791, 0.953057, 0.135499, 0, 0,
       0, 1;
   RigidBodyFrame<double> camera_frame(
-      "Camera", tree.FindBody(robot_bridge::kEEName), X_7C);
+      "Camera", tree.FindBody("iiwa_link_7"), X_7C);
 
   // Tool "T" frame wrt link7.
   const Eigen::Isometry3d X_7T =
@@ -426,7 +428,7 @@ int main(int argc, char **argv) {
       Eigen::AngleAxis<double>(-22. / 180. * M_PI, Eigen::Vector3d::UnitZ()) *
       Eigen::AngleAxis<double>(M_PI, Eigen::Vector3d::UnitY());
   RigidBodyFrame<double> tool_frame("Tool",
-                                    tree.FindBody(robot_bridge::kEEName), X_7T);
+                                    tree.FindBody("iiwa_link_7"), X_7T);
 
   // Start robot bridge.
   robot_bridge::IiwaController robot_comm(tree, tool_frame, camera_frame);
@@ -447,7 +449,8 @@ int main(int argc, char **argv) {
   // This cloud is already "centered" (world frame and cup frame coincide.)
   pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cup_template =
       boost::make_shared<pcl::PointCloud<pcl::PointXYZRGBNormal>>();
-  pcl::io::loadPCDFile<pcl::PointXYZRGBNormal>("cup0_up.pcd", *cup_template);
+  pcl::io::loadPCDFile<pcl::PointXYZRGBNormal>(
+      std::string(MODEL_DIR) + "pcd/cup0_up.pcd", *cup_template);
   cup_template =
       perception::DownSample<pcl::PointXYZRGBNormal>(cup_template, 0.005);
 

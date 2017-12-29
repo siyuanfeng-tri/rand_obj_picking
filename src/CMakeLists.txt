@@ -19,7 +19,7 @@ link_directories(
   ${CMAKE_INSTALL_PREFIX}/lib)
 
 add_definitions(
-  -DIIWA_MODEL_PATH="${PROJECT_SOURCE_DIR}/../models/iiwa_description/urdf/iiwa14_polytope_collision.urdf"
+  -DMODEL_DIR="${PROJECT_SOURCE_DIR}/../models/"
   -DCONFIG_DIR="${PROJECT_SOURCE_DIR}/../cfg/")
 
 add_executable(clutter_clearing2 clutter_clearing2.cc)

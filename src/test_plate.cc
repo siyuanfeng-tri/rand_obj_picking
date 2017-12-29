@@ -10,12 +10,14 @@ int main(int argc, char **argv) {
 
   lcm::LCM lcm;
   RigidBodyTree<double> tree;
+  const std::string robot_model_path = std::string(MODEL_DIR) +
+      "iiwa_description/urdf/iiwa14_polytope_collision.urdf";
   drake::parsers::urdf::AddModelInstanceFromUrdfFile(
-      IIWA_MODEL_PATH, drake::multibody::joints::kFixed, nullptr, &tree);
+      robot_model_path, drake::multibody::joints::kFixed, nullptr, &tree);
 
   Eigen::Isometry3d X_7C = Eigen::Isometry3d::Identity();
   RigidBodyFrame<double> camera_frame(
-      "Camera", tree.FindBody(robot_bridge::kEEName), X_7C);
+      "Camera", tree.FindBody("iiwa_link_7"), X_7C);
 
   const Eigen::Isometry3d X_7T =
       Eigen::Translation<double, 3>(Eigen::Vector3d(0, 0, 0.24)) *
@@ -23,7 +25,7 @@ int main(int argc, char **argv) {
       Eigen::AngleAxis<double>(M_PI, Eigen::Vector3d::UnitY()) *
       Eigen::Translation<double, 3>(Eigen::Vector3d(0, -0.05, 0));
   RigidBodyFrame<double> tool_frame("Tool",
-                                    tree.FindBody(robot_bridge::kEEName), X_7T);
+                                    tree.FindBody("iiwa_link_7"), X_7T);
 
   robot_bridge::IiwaController robot_comm(tree, tool_frame, camera_frame);
   robot_comm.Start();
