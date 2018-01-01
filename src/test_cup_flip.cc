@@ -77,7 +77,10 @@ bool MoveFromTrayToStage(
         return false;
       }
 
-      if (!robot_comm.CloseGripper()) {
+      robot_comm.CloseGripper();
+      robot_bridge::GripperState wsg_state;
+      robot_comm.GetGripperState(&wsg_state);
+      if (wsg_state.get_position() <= 0.05) {
         // Didn't grasp stuff, should abort.
         robot_comm.MoveJointRadians({q_rad[0], q_now}, {2, 1}, true);
         robot_comm.OpenGripper();
@@ -122,12 +125,10 @@ bool MoveFromTrayToStage(
  * in this case since the gripper is likely to be caught on the rack.)
  */
 void MoveFromStageToRack(const Eigen::Isometry3d &cup_pose_above_rack,
+                         const Eigen::VectorXd& deg_above_rack,
                          robot_bridge::RobotBridge &robot_comm) {
-  Eigen::VectorXd q_above_rack(7);
-  q_above_rack << -77, 17, -19, -89, 6, 76, 20;
-
   // MoveJ to right above rack.
-  robot_comm.MoveJointDegrees(q_above_rack, true);
+  robot_comm.MoveJointDegrees(deg_above_rack, true);
 
   // MoveL to right above the placement.
   robot_comm.MoveTool(cup_pose_above_rack, 1, true);
@@ -344,33 +345,69 @@ Scan(const rgbd_bridge::RealSenseSR300 &camera_interface,
   return fused_cloud->makeShared();
 }
 
-std::vector<Eigen::Isometry3d> GeneratePlacementGoalsAboveRack() {
-  std::vector<Eigen::Isometry3d> pose_above_rack;
+/*
+// Cam5 dish washer bottom rack.
+void GeneratePlacementGoalsAboveRack(
+    std::vector<Eigen::Isometry3d>* pose_above_rack,
+    std::vector<Eigen::VectorXd>* ini_degs) {
+  pose_above_rack->clear();
   // row 1
   for (int i = 0; i < 3; i++) {
-    pose_above_rack.push_back(
+    pose_above_rack->push_back(
         Eigen::Translation3d(Eigen::Vector3d(-0.182, -0.52 - 0.12 * i, 0.27)) *
         Eigen::AngleAxisd(M_PI / 2., Eigen::Vector3d::UnitZ()));
   }
   // row 2
   for (int i = 0; i < 3; i++) {
-    pose_above_rack.push_back(
+    pose_above_rack->push_back(
         Eigen::Translation3d(Eigen::Vector3d(-0.099, -0.47 - 0.12 * i, 0.27)) *
         Eigen::AngleAxisd(-M_PI / 2., Eigen::Vector3d::UnitZ()));
   }
   // row 3
   for (int i = 0; i < 3; i++) {
-    pose_above_rack.push_back(
+    pose_above_rack->push_back(
         Eigen::Translation3d(Eigen::Vector3d(0.035, -0.5 - 0.12 * i, 0.27)) *
         Eigen::AngleAxisd(M_PI / 2., Eigen::Vector3d::UnitZ()));
   }
   // row 4
   for (int i = 0; i < 3; i++) {
-    pose_above_rack.push_back(
+    pose_above_rack->push_back(
         Eigen::Translation3d(Eigen::Vector3d(0.196, -0.5 - 0.12 * i, 0.27)) *
         Eigen::AngleAxisd(-M_PI / 2., Eigen::Vector3d::UnitZ()));
   }
-  return pose_above_rack;
+  Eigen::VectorXd q_above_rack(7);
+  q_above_rack << -77, 17, -19, -89, 6, 76, 20;
+  ini_degs->resize(pose_above_rack->size(), q_above_rack);
+}
+*/
+
+// Industrial rack, blue peg.
+void GeneratePlacementGoalsAboveRack(
+    std::vector<Eigen::Isometry3d>* pose_above_rack,
+    std::vector<Eigen::VectorXd>* ini_degs) {
+  pose_above_rack->clear();
+  const double z = 0.22;
+  // row 1
+  for (int i = 0; i < 4; i++) {
+    pose_above_rack->push_back(
+        Eigen::Translation3d(Eigen::Vector3d(-0.167, -0.43 - 0.11 * i, z)) *
+        Eigen::AngleAxisd(M_PI / 2., Eigen::Vector3d::UnitZ()));
+  }
+  // row 2
+  for (int i = 0; i < 4; i++) {
+    pose_above_rack->push_back(
+        Eigen::Translation3d(Eigen::Vector3d(-0.0, -0.43 - 0.11 * i, z)) *
+        Eigen::AngleAxisd(M_PI / 2., Eigen::Vector3d::UnitZ()));
+  }
+  // row 3
+  for (int i = 0; i < 4; i++) {
+    pose_above_rack->push_back(
+        Eigen::Translation3d(Eigen::Vector3d(0.167, -0.43 - 0.11 * i, z)) *
+        Eigen::AngleAxisd(M_PI / 2., Eigen::Vector3d::UnitZ()));
+  }
+  Eigen::VectorXd q_above_rack(7);
+  q_above_rack << -68, 22, -4, -101, 1, 56, -139;
+  ini_degs->resize(pose_above_rack->size(), q_above_rack);
 }
 
 Eigen::Isometry3f RectifyCupPose(const Eigen::Isometry3f &cup_pose) {
@@ -398,8 +435,8 @@ int main(int argc, char **argv) {
   // Define workspace.
   WorkSpace input_tray;
   input_tray.center.translation() = Eigen::Vector3d(0.53, -0.38, 0);
-  input_tray.upper_bound = Eigen::Vector3d(0.14, 0.20, 0.13);
-  input_tray.lower_bound = Eigen::Vector3d(-0.14, -0.2, -0.01);
+  input_tray.upper_bound = Eigen::Vector3d(0.15, 0.21, 0.13);
+  input_tray.lower_bound = Eigen::Vector3d(-0.15, -0.21, -0.01);
 
   WorkSpace staging;
   staging.center.translation() = Eigen::Vector3d(0.5, 0.2, 0);
@@ -472,8 +509,6 @@ int main(int argc, char **argv) {
 
   // Reset robot.
   robot_comm.OpenGripper();
-  Eigen::VectorXd q0(7);
-  q0 << 0, 0, 0, -90, 0, 90, 0;
 
   pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr scene;
   pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr fitted =
@@ -482,8 +517,9 @@ int main(int argc, char **argv) {
   double score;
 
   // Generate placement goals in the dish rack.
-  std::vector<Eigen::Isometry3d> pose_above_rack =
-      GeneratePlacementGoalsAboveRack();
+  std::vector<Eigen::Isometry3d> pose_above_rack;
+  std::vector<Eigen::VectorXd> deg_above_rack;
+  GeneratePlacementGoalsAboveRack(&pose_above_rack, &deg_above_rack);
 
   // Move cups from tray to rack until no cups are detected in the tray.
   for (int cup_ctr = num_cups_in_rack; cup_ctr < (int)pose_above_rack.size();) {
@@ -578,7 +614,7 @@ int main(int argc, char **argv) {
     scene = Scan(camera_interface, stage_q_deg, depth_type, &lcm, robot_comm);
 
     // Debug info.
-    pcl::io::savePCDFileASCII("scene.pcd", *scene);
+    pcl::io::savePCDFileASCII("stage_scene.pcd", *scene);
 
     // Move to prep posture with async move, while pose estimations happens
     // in parallel.
@@ -635,7 +671,7 @@ int main(int argc, char **argv) {
     //////////////////////////////////////////////////////////////////////////
     // Move to dish rack.
     //////////////////////////////////////////////////////////////////////////
-    MoveFromStageToRack(pose_above_rack.at(cup_ctr), robot_comm);
+    MoveFromStageToRack(pose_above_rack.at(cup_ctr), deg_above_rack.at(cup_ctr), robot_comm);
 
     // Successfully placed a cup.
     cup_ctr++;
