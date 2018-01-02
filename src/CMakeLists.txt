@@ -77,6 +77,19 @@ target_link_libraries(test_cluster
   drake::drake
   ${PCL_LIBRARIES})
 
+add_executable(test_fork test_fork.cc)
+target_link_libraries(test_fork
+  perception
+  robot_bridge
+  rgbd_bridge
+  drake::drake
+  ${PCL_LIBRARIES}
+  ${OpenCV_LIBS})
+
+add_executable(test_img test_img.cc)
+target_link_libraries(test_img
+  ${OpenCV_LIBS})
+
 add_executable(test_grasp test_grasp.cc)
 target_link_libraries(test_grasp grasp_gen perception drake::drake ${PCL_LIBRARIES})
 
@@ -102,4 +115,10 @@ install(TARGETS test_grasp
   DESTINATION ${CMAKE_INSTALL_PREFIX})
 
 install(TARGETS clutter_clearing2
+  DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+install(TARGETS test_fork
+  DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+install(TARGETS test_img
   DESTINATION ${CMAKE_INSTALL_PREFIX})

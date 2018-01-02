@@ -197,7 +197,7 @@ void FlipCup(const Eigen::Isometry3d &cup_pose,
   }
 
   // go down
-  Eigen::Vector6d F_u = Eigen::Vector6d::Constant(25);
+  Eigen::Vector6d F_u = Eigen::Vector6d::Constant(40);
   Eigen::Vector6d F_l = Eigen::Vector6d::Constant(-25);
   if (robot_comm.MoveTool(X0, 1, F_u, F_l, true) != robot_bridge::MotionStatus::DONE) {
     throw std::runtime_error("Motion error.");
