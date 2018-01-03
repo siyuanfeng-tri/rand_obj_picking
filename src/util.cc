@@ -46,7 +46,7 @@ void FitObj(
 
   for (int it = 0; ; it++) {
     *score = perception::AlignCloud<pcl::PointXYZRGBNormal>(
-        aligned_obj, scene, 0.1, tmp, &incremental);
+        aligned_obj, scene, 0.05, tmp, &incremental);
     *obj_pose = incremental * (*obj_pose);
     if (*score < 0)
       return;

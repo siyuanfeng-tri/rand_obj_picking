@@ -81,9 +81,9 @@ bool MoveFromTrayToStage(
       robot_bridge::GripperState wsg_state;
       robot_comm.GetGripperState(&wsg_state);
       if (wsg_state.get_position() <= 0.05) {
+        robot_comm.OpenGripper();
         // Didn't grasp stuff, should abort.
         robot_comm.MoveJointRadians({q_rad[0], q_now}, {2, 1}, true);
-        robot_comm.OpenGripper();
         return false;
       }
 
@@ -308,6 +308,7 @@ Scan(const rgbd_bridge::RealSenseSR300 &camera_interface,
   perception::PointCloudFusion fusion(proj_func, 0.002);
 
   robot_comm.MoveJointDegrees(qs_deg.front(), true);
+  usleep(5e5);
 
   std::vector<Eigen::VectorXd> qq(qs_deg.begin() + 1, qs_deg.end());
   robot_comm.MoveJointDegrees(qq, std::vector<double>(qq.size(), 1.5), false);
@@ -421,6 +422,7 @@ Eigen::Isometry3f RectifyCupPose(const Eigen::Isometry3f &cup_pose) {
   float ang = std::atan2(cup_pose.linear()(1, 0), cup_pose.linear()(0, 0));
   ret.linear() =
       Eigen::AngleAxisf(ang, Eigen::Vector3f::UnitZ()).toRotationMatrix();
+  // ret = ret * Eigen::Translation3f(Eigen::Vector3f(0, 0.01, 0));
 
   return ret;
 }
@@ -434,14 +436,15 @@ int main(int argc, char **argv) {
 
   // Define workspace.
   WorkSpace input_tray;
-  input_tray.center.translation() = Eigen::Vector3d(0.53, -0.38, 0);
+  // input_tray.center.translation() = Eigen::Vector3d(0.55, -0.38, 0);
+  input_tray.center.translation() = Eigen::Vector3d(0.40 + 0.15, -0.37, 0);
   input_tray.upper_bound = Eigen::Vector3d(0.15, 0.21, 0.13);
-  input_tray.lower_bound = Eigen::Vector3d(-0.15, -0.21, -0.01);
+  input_tray.lower_bound = Eigen::Vector3d(-0.15, -0.21, -0.03);
 
   WorkSpace staging;
-  staging.center.translation() = Eigen::Vector3d(0.5, 0.2, 0);
+  staging.center.translation() = Eigen::Vector3d(0.6, 0.2, 0);
   staging.upper_bound = Eigen::Vector3d(0.2, 0.2, 0.13);
-  staging.lower_bound = Eigen::Vector3d(-0.2, -0.2, -0.01);
+  staging.lower_bound = Eigen::Vector3d(-0.2, -0.2, -0.03);
 
   // Declare a bunch of stuff
   lcm::LCM lcm;
@@ -453,9 +456,26 @@ int main(int argc, char **argv) {
 
   // Camera "C" frame relative to link7's frame.
   Eigen::Isometry3d X_7C = Eigen::Isometry3d::Identity();
-  X_7C.matrix() << 0.3826, -0.880474, 0.27997, -0.0491369, 0.923914, 0.364806,
-      -0.115324, 0.00836689, -0.000594751, 0.302791, 0.953057, 0.135499, 0, 0,
-      0, 1;
+  X_7C.matrix() <<
+    0.402823, -0.88401, 0.237193, -0.0473174,
+    0.914941, 0.395954, -0.0781292, 0.0110547,
+    -0.0248507, 0.24849, 0.968316, 0.146212,
+    0, 0, 0, 1;
+
+    /*
+    0.408571, -0.883062, 0.230805, -0.0464255,
+    0.912458, 0.401306, -0.0798352, 0.0146412,
+    -0.0221241, 0.243219, 0.969719, 0.145483,
+    0, 0, 0, 1;
+    */
+
+  /*
+  X_7C.matrix() <<
+      0.3826, -0.880474, 0.27997, -0.0491369,
+      0.923914, 0.364806, -0.115324, 0.00836689,
+      -0.000594751, 0.302791, 0.953057, 0.135499,
+      0, 0, 0, 1;
+  */
   RigidBodyFrame<double> camera_frame(
       "Camera", tree.FindBody("iiwa_link_7"), X_7C);
 
@@ -523,6 +543,7 @@ int main(int argc, char **argv) {
 
   // Move cups from tray to rack until no cups are detected in the tray.
   for (int cup_ctr = num_cups_in_rack; cup_ctr < (int)pose_above_rack.size();) {
+    /*
     //////////////////////////////////////////////////////////////////////////
     // Transfer from input tray
     //////////////////////////////////////////////////////////////////////////
@@ -606,11 +627,14 @@ int main(int argc, char **argv) {
         continue;
     }
 
+    */
+
     //////////////////////////////////////////////////////////////////////////
     // Flip cup in the staging area.
     //////////////////////////////////////////////////////////////////////////
 
     // Scan staging area, sometimes the release is not clean and the mug moves.
+    robot_comm.MoveJointDegrees(stage_prep_q_deg, 1.5, true);
     scene = Scan(camera_interface, stage_q_deg, depth_type, &lcm, robot_comm);
 
     // Debug info.
@@ -625,6 +649,8 @@ int main(int argc, char **argv) {
     scene = perception::CutWithWorkSpaceConstraints<pcl::PointXYZRGBNormal>(
         scene, staging.lower_bound.cast<float>(),
         staging.upper_bound.cast<float>(), staging.center.cast<float>());
+
+    scene = perception::DownSample<pcl::PointXYZRGBNormal>(scene, 0.005);
     perception::VisualizePointCloudDrake(*scene, &lcm,
                                          Eigen::Isometry3d::Identity(),
                                          "DRAKE_POINTCLOUD_staging");
@@ -634,6 +660,7 @@ int main(int argc, char **argv) {
         Eigen::AngleAxisf(0, Eigen::Vector3f::UnitZ());
 
     // Guess initial poses similar to the previous part.
+    /*
     cup_guess.clear();
     for (int i = 0; i < num_ang_bin; i++) {
       cup_guess.push_back(
@@ -645,6 +672,10 @@ int main(int argc, char **argv) {
         cup_template,
         perception::DownSample<pcl::PointXYZRGBNormal>(scene, 0.005), cup_guess,
         fitted, &cup_pose, &lcm);
+    */
+    FitObj(cup_template,
+           scene,
+           fitted, &cup_pose, &score, &lcm);
 
     std::cout << "score: " << score << "\n";
     // Normal good fit should be around 1.x e-5
