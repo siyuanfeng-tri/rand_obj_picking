@@ -41,8 +41,8 @@ bool MoveFromTrayToStage(
     X0 = cup_pose * grasps_in_cup_frame[i];
     Eigen::Isometry3d X1 = cup_goal * grasps_in_cup_frame[i];
     std::vector<Eigen::Isometry3d> poses = {
-        Eigen::Translation3d(Eigen::Vector3d(0, 0, 2 * kLiftZ)) * X0, X0,
-        Eigen::Translation3d(Eigen::Vector3d(0, 0, 2 * kLiftZ)) * X1, X1,
+        X0 * Eigen::Translation3d(Eigen::Vector3d(0, 0, 2 * kLiftZ)), X0,
+        X1 * Eigen::Translation3d(Eigen::Vector3d(0, 0, 2 * kLiftZ)), X1,
     };
     std::vector<double> times = {0, 1, 2, 3};
     std::vector<Eigen::VectorXd> q_rad;
@@ -180,7 +180,7 @@ void FlipCup(const Eigen::Isometry3d &cup_pose,
     std::vector<Eigen::VectorXd> q_rad;
 
     Eigen::VectorXd q_guess(7);
-    q_guess << 0, 0, 0, -90, 0, 90, 0;
+    q_guess << 70, 58, -51, -85, -4, 50, 115;
     q_guess = q_guess / 180 * M_PI;
 
     bool ret = robot_bridge::InverseKinTraj(robot_comm.get_robot(),
@@ -276,7 +276,12 @@ void FlipCup(const Eigen::Isometry3d &cup_pose,
   // rotate a bit more to avoid the finger pad getting caught on the handle when
   // releasing. in the dish rack.
   X0 = X0 * Eigen::AngleAxis<double>(-0.35, Eigen::Vector3d::UnitZ());
-  // X0 = X0 * Eigen::Translation3d(Eigen::Vector3d(-0.005, 0, 0));
+  X0 = Eigen::Translation3d(Eigen::Vector3d(0, 0, 0.02)) * X0;
+
+  double ang = std::atan2(X0.linear()(1, 0), X0.linear()(0, 0));
+  X0.linear() =
+      Eigen::AngleAxisd(ang, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+
   if (robot_comm.MoveTool(X0, 1.5, true) != robot_bridge::MotionStatus::DONE) {
     throw std::runtime_error("Motion error.");
   }
@@ -300,6 +305,7 @@ void FlipCup(const Eigen::Isometry3d &cup_pose,
 pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr
 Scan(const rgbd_bridge::RealSenseSR300 &camera_interface,
      const std::vector<Eigen::VectorXd> &qs_deg,
+     double duration_per_q,
      const rgbd_bridge::ImageType depth_type, lcm::LCM *lcm,
      robot_bridge::RobotBridge &robot_comm) {
   std::function<Eigen::Vector2f(const Eigen::Vector3f &)> proj_func =
@@ -308,10 +314,9 @@ Scan(const rgbd_bridge::RealSenseSR300 &camera_interface,
   perception::PointCloudFusion fusion(proj_func, 0.002);
 
   robot_comm.MoveJointDegrees(qs_deg.front(), true);
-  usleep(5e5);
 
   std::vector<Eigen::VectorXd> qq(qs_deg.begin() + 1, qs_deg.end());
-  robot_comm.MoveJointDegrees(qq, std::vector<double>(qq.size(), 1.5), false);
+  robot_comm.MoveJointDegrees(qq, std::vector<double>(qq.size(), duration_per_q), false);
 
   Eigen::Isometry3f camera_pose;
   pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr raw_cloud;
@@ -388,24 +393,16 @@ void GeneratePlacementGoalsAboveRack(
     std::vector<Eigen::VectorXd>* ini_degs) {
   pose_above_rack->clear();
   const double z = 0.22;
-  // row 1
-  for (int i = 0; i < 4; i++) {
-    pose_above_rack->push_back(
-        Eigen::Translation3d(Eigen::Vector3d(-0.167, -0.43 - 0.11 * i, z)) *
-        Eigen::AngleAxisd(M_PI / 2., Eigen::Vector3d::UnitZ()));
+
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 4; j++) {
+      Eigen::Vector3d offset(-0.055 - 0.11 + 0.11 * j, -0.53 - 0.11 * i, z);
+      pose_above_rack->push_back(
+          Eigen::Translation3d(offset) *
+          Eigen::AngleAxisd(M_PI / 2., Eigen::Vector3d::UnitZ()));
+    }
   }
-  // row 2
-  for (int i = 0; i < 4; i++) {
-    pose_above_rack->push_back(
-        Eigen::Translation3d(Eigen::Vector3d(-0.0, -0.43 - 0.11 * i, z)) *
-        Eigen::AngleAxisd(M_PI / 2., Eigen::Vector3d::UnitZ()));
-  }
-  // row 3
-  for (int i = 0; i < 4; i++) {
-    pose_above_rack->push_back(
-        Eigen::Translation3d(Eigen::Vector3d(0.167, -0.43 - 0.11 * i, z)) *
-        Eigen::AngleAxisd(M_PI / 2., Eigen::Vector3d::UnitZ()));
-  }
+
   Eigen::VectorXd q_above_rack(7);
   q_above_rack << -68, 22, -4, -101, 1, 56, -139;
   ini_degs->resize(pose_above_rack->size(), q_above_rack);
@@ -419,11 +416,12 @@ Eigen::Isometry3f RectifyCupPose(const Eigen::Isometry3f &cup_pose) {
   // Hack:
   // I am getting rid of the roll and pitch angle here...
   Eigen::Isometry3f ret = cup_pose;
+  /*
   float ang = std::atan2(cup_pose.linear()(1, 0), cup_pose.linear()(0, 0));
   ret.linear() =
       Eigen::AngleAxisf(ang, Eigen::Vector3f::UnitZ()).toRotationMatrix();
   // ret = ret * Eigen::Translation3f(Eigen::Vector3f(0, 0.01, 0));
-
+  */
   return ret;
 }
 
@@ -436,15 +434,14 @@ int main(int argc, char **argv) {
 
   // Define workspace.
   WorkSpace input_tray;
-  // input_tray.center.translation() = Eigen::Vector3d(0.55, -0.38, 0);
-  input_tray.center.translation() = Eigen::Vector3d(0.40 + 0.15, -0.37, 0);
-  input_tray.upper_bound = Eigen::Vector3d(0.15, 0.21, 0.13);
-  input_tray.lower_bound = Eigen::Vector3d(-0.15, -0.21, -0.03);
+  input_tray.center.translation() = Eigen::Vector3d(0.55, -0.37, -0.02);
+  input_tray.upper_bound = Eigen::Vector3d(0.16, 0.22, 0.13);
+  input_tray.lower_bound = Eigen::Vector3d(-0.16, -0.22, -0.01);
 
   WorkSpace staging;
-  staging.center.translation() = Eigen::Vector3d(0.6, 0.2, 0);
+  staging.center.translation() = Eigen::Vector3d(0.6, 0.2, -0.02);
   staging.upper_bound = Eigen::Vector3d(0.2, 0.2, 0.13);
-  staging.lower_bound = Eigen::Vector3d(-0.2, -0.2, -0.03);
+  staging.lower_bound = Eigen::Vector3d(-0.2, -0.2, -0.01);
 
   // Declare a bunch of stuff
   lcm::LCM lcm;
@@ -456,20 +453,16 @@ int main(int argc, char **argv) {
 
   // Camera "C" frame relative to link7's frame.
   Eigen::Isometry3d X_7C = Eigen::Isometry3d::Identity();
-  X_7C.matrix() <<
-    0.402823, -0.88401, 0.237193, -0.0473174,
-    0.914941, 0.395954, -0.0781292, 0.0110547,
-    -0.0248507, 0.24849, 0.968316, 0.146212,
-    0, 0, 0, 1;
 
-    /*
-    0.408571, -0.883062, 0.230805, -0.0464255,
-    0.912458, 0.401306, -0.0798352, 0.0146412,
-    -0.0221241, 0.243219, 0.969719, 0.145483,
-    0, 0, 0, 1;
-    */
+  // camera 3:
+  X_7C.matrix() <<
+    0.409537,   -0.886155,    0.216815,  -0.0431562,
+    0.912273,    0.399371,  -0.0908867,   0.0102685,
+    -0.00604978,    0.235016,    0.971973,    0.140054,
+    0,           0,           0,           1;
 
   /*
+  // camera 1:
   X_7C.matrix() <<
       0.3826, -0.880474, 0.27997, -0.0491369,
       0.923914, 0.364806, -0.115324, 0.00836689,
@@ -497,6 +490,15 @@ int main(int argc, char **argv) {
       rgbd_bridge::ImageType::RECT_RGB_ALIGNED_DEPTH;
   const rgbd_bridge::ImageType color_type = rgbd_bridge::ImageType::RECT_RGB;
   const std::vector<rgbd_bridge::ImageType> channels = {color_type, depth_type};
+
+  Eigen::Isometry3f ir_to_rgb;
+  ir_to_rgb.matrix() <<
+      0.999998748, 0.001223199, -0.001188446, 0.025700312,
+      -0.001230556, 0.999981344, -0.005923077, 0.002663441,
+      0.001181156, 0.005924821, 0.999981344, -0.005268119,
+      0.000000000,  0.000000000,  0.000000000,  1.000000000;
+
+  camera_interface.set_ir_to_rgb_extrinsics(ir_to_rgb);
   camera_interface.Start(
       {color_type, depth_type, rgbd_bridge::ImageType::DEPTH}, color_type);
   camera_interface.set_mode(rs_ivcam_preset::RS_IVCAM_PRESET_SHORT_RANGE);
@@ -508,6 +510,11 @@ int main(int argc, char **argv) {
       boost::make_shared<pcl::PointCloud<pcl::PointXYZRGBNormal>>();
   pcl::io::loadPCDFile<pcl::PointXYZRGBNormal>(
       std::string(MODEL_DIR) + "pcd/cup0_up.pcd", *cup_template);
+
+  Eigen::Isometry3f cup_pose =
+      Eigen::Translation3f(Eigen::Vector3f(0, -0.005, 0)) *
+      Eigen::AngleAxisf(-0.1, Eigen::Vector3f::UnitZ());
+  pcl::transformPointCloudWithNormals(*cup_template, *cup_template, cup_pose);
   cup_template =
       perception::DownSample<pcl::PointXYZRGBNormal>(cup_template, 0.005);
 
@@ -517,6 +524,7 @@ int main(int argc, char **argv) {
              tree.get_num_positions());
 
   std::vector<Eigen::VectorXd> input_q_deg =
+      //read_q(std::string(CONFIG_DIR) + "q_waypoints/tmp",
       read_q(std::string(CONFIG_DIR) + "q_waypoints/input_tray_deg",
              tree.get_num_positions());
 
@@ -533,7 +541,6 @@ int main(int argc, char **argv) {
   pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr scene;
   pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr fitted =
       boost::make_shared<pcl::PointCloud<pcl::PointXYZRGBNormal>>();
-  Eigen::Isometry3f cup_pose;
   double score;
 
   // Generate placement goals in the dish rack.
@@ -543,13 +550,13 @@ int main(int argc, char **argv) {
 
   // Move cups from tray to rack until no cups are detected in the tray.
   for (int cup_ctr = num_cups_in_rack; cup_ctr < (int)pose_above_rack.size();) {
-    /*
     //////////////////////////////////////////////////////////////////////////
     // Transfer from input tray
     //////////////////////////////////////////////////////////////////////////
 
+    robot_comm.MoveJointDegrees(tray_prep_q_deg, true);
     // Scan input tray.
-    scene = Scan(camera_interface, input_q_deg, depth_type, &lcm, robot_comm);
+    scene = Scan(camera_interface, input_q_deg, 2, depth_type, &lcm, robot_comm);
     scene = perception::SubtractTable<pcl::PointXYZRGBNormal>(scene, 0.01);
     scene = perception::CutWithWorkSpaceConstraints<pcl::PointXYZRGBNormal>(
         scene, input_tray.lower_bound.cast<float>(),
@@ -610,13 +617,18 @@ int main(int argc, char **argv) {
       // 2 candidate pre-defined grasps (forehand / backhand).
       std::vector<Eigen::Isometry3d> grasps_in_cup_frame;
       grasps_in_cup_frame.push_back(
-          Eigen::Translation3d(Eigen::Vector3d(0, 0, 0.06)) *
+          Eigen::Translation3d(Eigen::Vector3d(0.0, 0.0, 0.04)) *
           Eigen::AngleAxis<double>(-0, Eigen::Vector3d::UnitZ()));
       grasps_in_cup_frame.push_back(
-          Eigen::Translation3d(Eigen::Vector3d(0, 0, 0.06)) *
+          Eigen::Translation3d(Eigen::Vector3d(0.0, 0.0, 0.04)) *
           Eigen::AngleAxis<double>(M_PI, Eigen::Vector3d::UnitZ()));
 
       cup_pose = RectifyCupPose(cup_pose);
+
+      pcl::transformPointCloudWithNormals(*cup_template, *fitted, cup_pose);
+      perception::VisualizePointCloudDrake(*fitted, &lcm,
+                                         Eigen::Isometry3d::Identity(),
+                                         "DRAKE_POINTCLOUD_FUSED_RECT");
 
       // Exec script.
       bool success =
@@ -627,22 +639,19 @@ int main(int argc, char **argv) {
         continue;
     }
 
-    */
-
     //////////////////////////////////////////////////////////////////////////
     // Flip cup in the staging area.
     //////////////////////////////////////////////////////////////////////////
 
     // Scan staging area, sometimes the release is not clean and the mug moves.
-    robot_comm.MoveJointDegrees(stage_prep_q_deg, 1.5, true);
-    scene = Scan(camera_interface, stage_q_deg, depth_type, &lcm, robot_comm);
+    scene = Scan(camera_interface, stage_q_deg, 2, depth_type, &lcm, robot_comm);
 
     // Debug info.
     pcl::io::savePCDFileASCII("stage_scene.pcd", *scene);
 
     // Move to prep posture with async move, while pose estimations happens
     // in parallel.
-    robot_comm.MoveJointDegrees(stage_prep_q_deg, 1.5, false);
+    // robot_comm.MoveJointDegrees(stage_prep_q_deg, 1.5, false);
 
     // Estimate cup pose.
     scene = perception::SubtractTable<pcl::PointXYZRGBNormal>(scene, 0.01);
@@ -669,9 +678,7 @@ int main(int argc, char **argv) {
                             Eigen::Vector3f::UnitZ()));
     }
     score = ThreadedFitObj(
-        cup_template,
-        perception::DownSample<pcl::PointXYZRGBNormal>(scene, 0.005), cup_guess,
-        fitted, &cup_pose, &lcm);
+        cup_template, scene, cup_guess, fitted, &cup_pose, &lcm);
     */
     FitObj(cup_template,
            scene,
@@ -688,11 +695,11 @@ int main(int argc, char **argv) {
     cup_pose = RectifyCupPose(cup_pose);
 
     // make sure we are done with async move.
-    robot_comm.WaitForRobotMotionCompletion();
+    // robot_comm.WaitForRobotMotionCompletion();
 
     std::vector<Eigen::Isometry3d> grasps_in_cup_frame;
     grasps_in_cup_frame.push_back(
-        Eigen::Translation3d(Eigen::Vector3d(0, 0, 0.04)) *
+        Eigen::Translation3d(Eigen::Vector3d(0, 0, 0.05)) *
         Eigen::AngleAxis<double>(-1, Eigen::Vector3d::UnitZ()) *
         Eigen::AngleAxis<double>(-M_PI / 4., Eigen::Vector3d::UnitY()));
 
@@ -707,6 +714,10 @@ int main(int argc, char **argv) {
     // Successfully placed a cup.
     cup_ctr++;
   }
+
+  robot_comm.MoveJointDegrees(tray_prep_q_deg, true);
+  robot_comm.Stop();
+  camera_interface.Stop();
 
   return 0;
 }
