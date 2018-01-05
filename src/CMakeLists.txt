@@ -86,6 +86,15 @@ target_link_libraries(test_fork
   ${PCL_LIBRARIES}
   ${OpenCV_LIBS})
 
+add_executable(gen_calib_img gen_calib_img.cc)
+target_link_libraries(gen_calib_img
+  perception
+  robot_bridge
+  rgbd_bridge
+  drake::drake
+  ${PCL_LIBRARIES}
+  ${OpenCV_LIBS})
+
 add_executable(test_img test_img.cc)
 target_link_libraries(test_img
   ${OpenCV_LIBS})
@@ -122,3 +131,7 @@ install(TARGETS test_fork
 
 install(TARGETS test_img
   DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+install(TARGETS gen_calib_img
+  DESTINATION ${CMAKE_INSTALL_PREFIX})
+
