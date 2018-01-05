@@ -268,6 +268,16 @@ bool ExecuteGrasp(robot_bridge::RobotBridge &robot_comm,
 
     // Update grasp
     updated_pre_grasp = update.cast<double>() * updated_pre_grasp;
+
+    // If the updated target is too far away from the original, we should abort.
+    if ((updated_pre_grasp.translation() - pre_grasp.translation()).norm() > 0.10) {
+      return false;
+    }
+    Eigen::AngleAxisd rot_err(updated_pre_grasp.linear().transpose() * pre_grasp.linear());
+    if (std::fabs(rot_err.angle()) >  30. * M_PI / 180) {
+      return false;
+    }
+
     robot_comm.UpdateToolGoal(updated_pre_grasp);
 
     auto robot_v = robot_comm.GetJointVelocityRadians();
